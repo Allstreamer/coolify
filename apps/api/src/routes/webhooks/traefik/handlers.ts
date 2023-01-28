@@ -2,6 +2,7 @@ import { FastifyRequest } from 'fastify';
 import { errorHandler, getDomain, isDev, prisma, executeCommand } from '../../../lib/common';
 import { getTemplates } from '../../../lib/services';
 import { OnlyId } from '../../../types';
+import { parseAndFindServiceTemplates } from '../../api/v1/services/handlers';
 
 function generateServices(serviceId, containerId, port, isHttp2 = false, isHttps = false) {
 	if (isHttp2) {
@@ -50,6 +51,9 @@ function generateRouters(
 	isHttp2 = false
 ) {
 	let rule = `Host(\`${nakedDomain}\`)${pathPrefix ? ` && PathPrefix(\`${pathPrefix}\`)` : ''}`;
+	let ruleWWW = `Host(\`www.${nakedDomain}\`)${
+		pathPrefix ? ` && PathPrefix(\`${pathPrefix}\`)` : ''
+	}`;
 	let http: any = {
 		entrypoints: ['web'],
 		rule,
@@ -69,14 +73,14 @@ function generateRouters(
 	};
 	let httpWWW: any = {
 		entrypoints: ['web'],
-		rule,
+		rule: ruleWWW,
 		service: `${serviceId}`,
 		priority: 2,
 		middlewares: []
 	};
 	let httpsWWW: any = {
 		entrypoints: ['websecure'],
-		rule,
+		rule: ruleWWW,
 		service: `${serviceId}`,
 		priority: 2,
 		tls: {
@@ -533,10 +537,11 @@ export async function proxyConfiguration(request: FastifyRequest<OnlyId>, remote
 					}
 					found = JSON.parse(JSON.stringify(found).replaceAll('$$id', id));
 					for (const oneService of Object.keys(found.services)) {
-						const isDomainConfiguration =
-							found?.services[oneService]?.proxy?.filter((p) => p.domain) ?? [];
-						if (isDomainConfiguration.length > 0) {
-							const { proxy } = found.services[oneService];
+						const isDomainAndProxyConfiguration =
+							found?.services[oneService]?.proxy?.filter((p) => p.port) ?? [];
+						if (isDomainAndProxyConfiguration.length > 0) {
+							const template: any = await parseAndFindServiceTemplates(service, null, true);
+							const { proxy } = template.services[oneService] || found.services[oneService];
 							for (let configuration of proxy) {
 								if (configuration.domain) {
 									const setting = serviceSetting.find(

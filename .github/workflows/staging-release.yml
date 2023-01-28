@@ -65,7 +65,7 @@ jobs:
           context: .
           platforms: linux/amd64
           push: true
-          tags: coollabsio/coolify:next-amd64
+          tags: coollabsio/coolify:next
           cache-from: type=registry,ref=coollabsio/coolify:buildcache-next-amd64
           cache-to: type=registry,ref=coollabsio/coolify:buildcache-next-amd64,mode=max
   merge-manifest:
@@ -85,8 +85,7 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
       - name: Create & publish manifest
         run: |
-          docker manifest create coollabsio/coolify:next --amend coollabsio/coolify:next-amd64 --amend coollabsio/coolify:next-arm64
-          docker manifest push coollabsio/coolify:next
+          docker buildx imagetools create --append coollabsio/coolify:next-arm64 --tag coollabsio/coolify:next
       - uses: sarisia/actions-status-discord@v1
         if: always()
         with:
